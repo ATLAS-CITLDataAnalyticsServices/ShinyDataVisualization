@@ -1,0 +1,95 @@
+##############################################
+# CITL Analytics Winter Project 2016-2017    # 
+# Liqun Zeng                                 #
+#                                            #
+# Data Visualization:                        #
+#              Circlize                      #
+#                                            #
+# Using Coursera Practice Click Stream Data  #
+##############################################
+
+
+# Install:
+#   install.packages("circlize")
+
+library(circlize)
+
+################### Get the Data Ready ###################
+
+setwd("~/Dropbox/RA_CITL/WinterProject/clickStream01")
+data <- read.csv("KeyForNewData2.csv")
+
+# transform the data
+
+transformData2 <- function(x) {
+  click <- as.vector(t(data.matrix(x[,c(3,5:12)])))
+  data <- data.frame(user=rep(x$UserID,each=9),
+                     status=as.factor(rep(c("end","pause","play","playback_rate_change","seek","start",
+                                 "subtitle_change","volume_change","wait"),length(x$Video))),
+                     click,
+                     y=rnorm(nrow(x)),
+                     video=rep(x$Video,each=9))
+}
+
+data <- transformData2(data)
+
+#data <- data[data$click < 500, ]
+data <- data[data$click < 80, ]
+
+################### Data Prepration Done ###################
+
+
+# Creating a circle plot follos the sequence of 
+# "initialize - create track - add graphics - create track - add graphics - ... - clear"
+
+# 1. initiate the layout
+
+# A circular layout is composed of sectors and tracks, 
+# the intersection of a sector and a track is called a cell 
+# which can be thought as an imaginary plotting region for data points in a certain category.
+
+par(mar = c(1, 1, 1, 1), lwd = 0.1, cex = 0.7)
+#circos.par(cell.padding = c(0.02, 0, 0.02, 0))
+circos.par("track.height" = 0.3)
+#x-lims for cells in the track 
+circos.initialize(factors = data$status, x = data$click)
+# in this step, circos.initialize allocates sectors in the circle according
+# to ranges of x-values in different categories. E.g, if there are two categories, range for x-values in the
+# first category is c(0, 2) and range for x-values in the second category is c(0, 1), the first category
+# would hold approximately 67% areas of the circle. 
+
+# 2. draw the first track
+
+# add axes in the first track, The axis for each cell is added by panel.fun argument
+# panel.fun actually means adding graphics in the “current cell”
+circos.trackPlotRegion(factors = data$status, y = data$y,
+                       panel.fun = function(x, y) {
+                         circos.axis()
+                       })
+
+col = rainbow(9)
+circos.trackPoints(data$status, data$click, data$y, col = col, pch = 16, cex = 0.5)
+
+# 3. draw the second track
+
+# bgcol = c(rep(c("#EFEFEF", "#CCCCCC"), 4),"#EFEFEF")
+# the function also creates a new track because drawing histogram is really high level, 
+# so we do not need to call circos.trackPlotRegion here. The index for this track is 2.
+circos.trackHist(data$status, data$click, bg.col = col, col = "black")
+
+
+# 4. draw the third track
+circos.trackPlotRegion(factors = data$status, y = data$y,
+                       panel.fun = function(x, y, col) {
+                         sector.index = get.cell.meta.data("sector.index")
+                         xlim = get.cell.meta.data("xlim")
+                         ylim = get.cell.meta.data("ylim")
+                         circos.text(mean(xlim), mean(ylim),
+                                     niceFacing = TRUE,facing="clockwise",
+                                     cex=0.8,
+                                     sector.index)
+                       })
+
+# 5. clear the plot setting
+
+circos.clear()
